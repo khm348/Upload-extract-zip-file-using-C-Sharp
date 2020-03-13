@@ -1,0 +1,87 @@
+ public ActionResult upload()
+        {
+            string createText = "Hello and Welcome to upload method" + Environment.NewLine;
+            System.IO.File.WriteAllText(Server.MapPath("~/pres/upload.txt"), createText);
+            string path = string.Empty;
+            Session["UserId"] = Request.Form["UserId"].ToString();
+            if (Session["UserId"] != null)
+            {
+                var user = from u in db.users where (u.id==Convert.ToInt32(Session["UserId"])) select u;
+                if (user != null && user.Count() > 0)
+                {
+                    Session["UsertypeId"] = user.First().usertype_id;
+                    Session["Username"] = user.First().username;
+                    Session["name"] = user.First().first_name.ToString() + " " + user.First().last_name.ToString();
+                }
+                string createText1 = "Hello and Welcome to session inside" + Environment.NewLine;
+                System.IO.File.WriteAllText(Server.MapPath("~/pres/upload.txt"), createText1);
+                ViewData["UserId"] = Session["UserId"].ToString();
+                try
+                {
+                    if (Request.Files.Count > 0)
+                    {
+                        var file = Request.Files[0];
+                        if (file.FileName.Contains(".zip") && file.FileName.Replace(".zip", string.Empty).Length > 255)
+                        {
+                            return Json(new { message = "fail", responseText = "Folder name should be less than or equal to 255 characters" }, JsonRequestBehavior.AllowGet);
+                        }
+                        if (file != null && file.ContentLength > 0)
+                        {                             
+                            string savePath = Server.MapPath("~/pres/" + file.FileName);
+                            path = Server.MapPath("~/pres/" + Guid.NewGuid().ToString().GetHashCode().ToString("x"));
+                            if (file != null && file.ContentLength > 0)
+                            {
+
+                                file.SaveAs(savePath);
+                                DirectoryInfo di = Directory.CreateDirectory(path);
+                                try
+                                {
+                                    
+                                    ZipFile.ExtractToDirectory(savePath, path, System.Text.Encoding.Default);
+                                    System.IO.File.Delete(savePath);
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    return Json(new { message = "fail", responseText = "Zip FIle issue :" + ex.Message.ToString() }, JsonRequestBehavior.AllowGet);
+                                }
+                                try
+                                {
+                                    string ZipName = file.FileName.Substring(0, file.FileName.Length - 4);
+                                    DirectoryInfo dir = new DirectoryInfo(Directory.GetDirectories(path)[0]);
+
+                                    if (dir.Name != ZipName)
+                                    {
+                                        return Json(new { message = "fail", responseText = "Please zip the presentation outer folder and upload again" }, JsonRequestBehavior.AllowGet);
+                                    }
+                                    if (Directory.GetDirectories(path).Length > 1)
+                                    {
+                                        return Json(new { message = "fail", responseText = "Please make sure you zip only the presentation folder and upload again." }, JsonRequestBehavior.AllowGet);
+                                    }
+                                    else
+                                    {
+                                        return Json(new { message = "success", responseText = path }, JsonRequestBehavior.AllowGet);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+
+                                    return Json(new { message = "fail", responseText = "Directory issue :" + ex.Message.ToString() }, JsonRequestBehavior.AllowGet);
+                                }
+
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { message = "fail", responseText = "Issue:" + ex.Message.ToString() }, JsonRequestBehavior.AllowGet);
+                }
+
+            }
+            else
+            {
+                return Redirect(WebConfigurationManager.AppSettings["MREUrl"].ToString());
+            }
+            return Json(new { message = "success", responseText = path }, JsonRequestBehavior.AllowGet);
+        }
